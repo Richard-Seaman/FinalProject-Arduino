@@ -9,24 +9,10 @@
 // The example was accessed on 03/07/2018 at the followinf link:
 // https://github.com/andrewrapp/xbee-arduino/blob/master/examples/Series1_Tx/Series1_Tx.pde
 
-// A youtube tutorial by Ralph Bacon was followed in order to allow the Arduino to sleep between transmissions
-// The youtube tutorial was accessed on 4/07/2018 at the following link:
-// https://www.youtube.com/watch?v=jqFl8ydUzZM
-// The tutorial code was accessed on 4/07/2018 at the following link:
-// https://github.com/RalphBacon/Arduino-Deep-Sleep/blob/master/Sleep_ATMEGA328P_Timer.ino
-
 // NB: SHIELD MUST BE IN UART TO WORK!!!
  
 #include <XBee.h>
 #include <dht.h>
-
-// For sleeping
-#include "Arduino.h"
-#include <avr/sleep.h>
-#include <avr/wdt.h>
-
-// Volatile as it's used within interrupt
-volatile char sleepCnt = 0;
 
 XBee xbee = XBee();
 dht DHT;
@@ -78,72 +64,6 @@ void setup() {
 
 // The continuous loop which begins after the setup
 void loop() {
-
-  // NB: not original code!!
-  // code for sleeping is mostly copied from Ralph Bacon's tutorial
-  // with only minor modifications made as required
-
-  ////////////////////////////
-  // Start of Ralph Bacon's code
-  
-  // Disable the ADC (Analog to digital converter, pins A0 [14] to A5 [19])
-  static byte prevADCSRA = ADCSRA;
-  ADCSRA = 0;
-
-  // Set the type of sleep mode we want. (deep sleep)
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  sleep_enable();
-
-  // Note, sleepCnt * 1s = actual sleep time  (900 = 15min)
-  while (sleepCnt < 900) {
-
-    // Turn of Brown Out Detection (low voltage). 
-    // This is automatically re-enabled upon timer interrupt
-    sleep_bod_disable();
-    
-    // Ensure we can wake up again by first disabling interrupts (temporarily) so
-    // the wakeISR does not run before we are asleep and then prevent interrupts,
-    // and then defining the ISR (Interrupt Service Routine) to run when poked awake by the timer
-    noInterrupts();
-
-    // clear various "reset" flags
-    MCUSR = 0;  // allow changes, disable reset
-    WDTCSR = bit (WDCE) | bit(WDE); // set interrupt mode and an interval
-    WDTCSR = bit (WDIE) | bit(WDP2) | bit(WDP1); //| bit(WDP0);    // set WDIE, and 1 second delay
-    wdt_reset();
-
-    // Send a message just to show we are about to sleep
-    //Serial.println("Good night!");
-    //Serial.flush();
-
-    // Allow interrupts now
-    interrupts();
-
-    // And enter sleep mode as set above
-    sleep_cpu();
-  
-  }
-
-  // --------------------------------------------------------
-  // µController is now asleep until woken up by an interrupt
-  // --------------------------------------------------------
-
-  // Prevent sleep mode, so we don't enter it again, except deliberately, by code
-  sleep_disable();
-
-  // Wakes up at this point when timer wakes up µC
-  Serial.println("I'm awake!");
-
-  // Reset sleep counter
-  sleepCnt = 0;
-
-  // Re-enable ADC if it was previously running
-  ADCSRA = prevADCSRA;
-
-  // End of Ralph Bacon's code
-  ////////////////////////////
-
-  // Code to do when awoken from sleep below...
 
   // Read the humidity and temperature
   int chk = DHT.read11(DHT11_PIN);
@@ -208,18 +128,6 @@ void loop() {
   }
   
   // Delay the loop  
-  //delay(300000);
-}
-
-// NB: required function for wdt (watchdog timer)
-// When WatchDog timer causes µC to wake it comes here
-ISR (WDT_vect) {
-
-  // Turn off watchdog, we don't want it to do anything (like resetting this sketch)
-  wdt_disable();
-
-  // Increment the WDT interrupt count
-  sleepCnt++;
-
-  // Now we continue running the main Loop() just after we went to sleep
+  delay(900000);
+  
 }
